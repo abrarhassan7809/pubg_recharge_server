@@ -1,0 +1,5 @@
+.venv
+ludo.py
+myway.py
+__pycache__
+.idea
