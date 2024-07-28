@@ -1,7 +1,6 @@
 import time
 from selenium import webdriver
-from selenium.common import NoSuchElementException, TimeoutException
-from selenium.webdriver import ActionChains
+from selenium.webdriver import ActionChains, Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -9,48 +8,64 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 class Scraper:
-    def __init__(self, player_id):
-        self.player_id = player_id
-        self.card_data_dict = {}
-        self.options = Options()
-        self.options.add_argument("--disable-notifications")
-        self.driver = webdriver.Chrome(options=self.options)
-        self.wait = WebDriverWait(self.driver, 10)
+    driver = None
+    wait = None
 
-    def run(self):
-        try:
-            self.driver.get('https://www.midasbuy.com/midasbuy/jo/buy/pubgm')
-            print('Driver created and page loaded')
-            self.accept_cookies()
-            # self.login_user()
-            # self.driver.refresh()
-            # self.close_next_adds()
-            player_name = self.add_user_id()
-            return player_name
-        finally:
-            time.sleep(20)
+    @classmethod
+    def get_driver(cls):
+        if cls.driver is None:
+            options = Options()
+            options.add_argument("--disable-notifications")
+            cls.driver = webdriver.Chrome(options=options)
+            cls.driver.set_window_size(1920, 1080)
+            cls.wait = WebDriverWait(cls.driver, 10)
+        return cls.driver
+
+    def __init__(self):
+        self.player_id = None
+        self.card_data_dict = {}
+
+    def load_page(self):
+        driver = self.get_driver()
+        driver.get('https://www.midasbuy.com/midasbuy/jo/buy/pubgm')
+        print('Driver created and page loaded')
+        self.accept_cookies()
+
+    def close_browser(self):
+        if self.driver is not None:
             self.driver.quit()
+            self.driver = None
 
     def close_adds(self):
         try:
-            close_btn = self.wait.until(EC.element_to_be_clickable(
-                (By.XPATH, "//div[@class='PopVipRecommendLogin_close__l+yAq']//i[@class='i-midas:error icon']")))
-            ActionChains(self.driver).move_to_element(close_btn).click(close_btn).perform()
-            time.sleep(1)
+            try:
+                close_btn = self.wait.until(EC.element_to_be_clickable(
+                    (By.XPATH, "//div[@class='PopVipRecommendLogin_close__l+yAq']//i[@class='i-midas:error icon']")))
+                ActionChains(self.driver).move_to_element(close_btn).click(close_btn).perform()
+                time.sleep(1)
+            except Exception as e:
+                pass
+            try:
+                close_btn = self.wait.until(EC.element_to_be_clickable(
+                    (By.XPATH, "//div[@class='PatFacePopWrapper_close-btn__erWAb']")))
+                ActionChains(self.driver).move_to_element(close_btn).click(close_btn).perform()
+                time.sleep(1)
+            except Exception as e:
+                pass
         except Exception as e:
             print('Close button not found', e)
 
     def close_next_adds(self):
         try:
-            close_btn = self.wait.until(EC.presence_of_element_located(
-                (By.XPATH, "//div[@class='PatFacePopWrapper_close-btn__erWAb']")))
+            self.driver.refresh()
+            close_btn = self.wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//div[@class='PatFacePopWrapper_pop-content__XfRYX']//div[@class='PatFacePopWrapper_close-btn__erWAb']")))
             ActionChains(self.driver).move_to_element(close_btn).click(close_btn).perform()
             time.sleep(1)
         except Exception as e:
             print('Next close button not found', e)
 
     def accept_cookies(self):
-        self.driver.set_window_size(1920, 1080)
         try:
             self.close_adds()
             cookies_btn = self.wait.until(
@@ -89,10 +104,11 @@ class Scraper:
             except Exception as e:
                 print("login not found", e)
 
-        except (NoSuchElementException, TimeoutException) as e:
+        except Exception as e:
             print("iframe not found", e)
 
-    def add_user_id(self):
+    def add_player_id(self, player_id):
+        self.player_id = player_id
         try:
             try:
                 add_user_id_btn = self.wait.until(
@@ -100,7 +116,6 @@ class Scraper:
                 ActionChains(self.driver).move_to_element(add_user_id_btn).click(add_user_id_btn).perform()
                 print('Add user button clicked')
             except Exception as e:
-                print('Add user button not found', e)
                 try:
                     add_other_user_id_btn = self.wait.until(
                         EC.element_to_be_clickable((By.XPATH, "//span[@class='UserTabBox_switch_btn__428iM']")))
@@ -113,8 +128,9 @@ class Scraper:
 
             input_field = self.wait.until(
                 EC.presence_of_element_located((By.XPATH, "//div[@class='Input_input__s4ezt']//input[@type='text']")))
-            input_field.clear()
-            input_field.click()
+            input_field.send_keys(Keys.CONTROL, 'a')
+            input_field.send_keys(Keys.DELETE)
+            time.sleep(1)
             input_field.send_keys(f"{self.player_id}")
             time.sleep(1)
 
@@ -123,74 +139,36 @@ class Scraper:
                 (By.XPATH,
                  "//div[@class='BindLoginPop_btn_wrap__eiPwz']//div[@class='Button_btn__P0ibl Button_btn_primary__1ncdM']")))
             ActionChains(self.driver).move_to_element(submit_btn).click(submit_btn).perform()
+            time.sleep(1)
 
-            try:
-                player_name = self.wait.until(EC.presence_of_element_located(
-                    (By.XPATH, "//div[@class='UserTabBox_user_head_text__M0ViN']//span[@class='UserTabBox_name__4ogGM']")))
-                print("Player name found:", player_name.text)
-                return player_name.text
-            except Exception as e:
-                print('Invalid player id', e)
-                return "Invalid player id"
+            invalid_player_id = self.wait.until(EC.presence_of_element_located((By.XPATH, "//div[@class='Input_error_text__Pd7xh']//p"))).is_displayed()
+            return invalid_player_id
 
         except Exception as e:
-            print('Error in adding user ID:', e)
+            print('Invalid player ID:', e)
             return None
 
-
-class CardScraper:
-    def __init__(self, player_id, item_id):
-        self.player_id = player_id
-        self.item_id = int(item_id)
-        self.card_data_dict = {}
-        self.options = Options()
-        self.options.add_argument("--disable-notifications")
-        self.driver = webdriver.Chrome(options=self.options)
-        self.wait = WebDriverWait(self.driver, 10)
-
-    def run(self):
-        try:
-            self.driver.get('https://www.midasbuy.com/midasbuy/jo/buy/pubgm')
-            print('Driver created and page loaded')
-            self.accept_cookies()
-            # self.driver.refresh()
-            # self.close_next_adds()
-            self.get_card_data()
-            return self.card_data_dict
-        finally:
-            time.sleep(20)
-            self.driver.quit()
-
-    def close_adds(self):
-        try:
-            close_btn = self.wait.until(EC.element_to_be_clickable(
-                (By.XPATH, "//div[@class='PopVipRecommendLogin_close__l+yAq']//i[@class='i-midas:error icon']")))
-            ActionChains(self.driver).move_to_element(close_btn).click(close_btn).perform()
-            time.sleep(1)
-        except Exception as e:
-            print('Close button not found', e)
-
-    def close_next_adds(self):
+    def close_player_id_window(self):
+        driver = self.get_driver()
         try:
             close_btn = self.wait.until(EC.presence_of_element_located(
-                (By.XPATH, "//div[@class='PatFacePopWrapper_close-btn__erWAb']")))
-            ActionChains(self.driver).move_to_element(close_btn).click(close_btn).perform()
+                (By.XPATH, "//div[@class='PopTitle_2_close_btn__+3O9n']//i")))
+            ActionChains(driver).move_to_element(close_btn).click(close_btn).perform()
             time.sleep(1)
         except Exception as e:
-            print('Next close button not found', e)
+            print('player id window close btn not found', e)
 
-    def accept_cookies(self):
-        self.driver.set_window_size(1920, 1080)
+    def get_player_name(self):
         try:
-            self.close_adds()
-            cookies_btn = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, "/html/body/div[2]/div/div[11]/div[3]/div[1]/div/div")))
-            ActionChains(self.driver).move_to_element(cookies_btn).click(cookies_btn).perform()
-            time.sleep(1)
+            player_name = self.wait.until(EC.presence_of_element_located(
+                (By.XPATH, "//div[@class='UserTabBox_user_head_text__M0ViN']//span[@class='UserTabBox_name__4ogGM']")))
+            print("Player name found:", player_name.text)
+            return player_name.text
         except Exception as e:
-            print('Cookies button not found', e)
+            print('Invalid player id', e)
+            return "Invalid player id"
 
-    def get_card_data(self):
+    def get_card_data(self, item_id):
         try:
             data_dict = {}
             main_card_div = self.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='abTest_type_have_filter__LAY20 abTest_recharge_class_box__lK8IP  abTest_type_gifts__BA+Q6 ']")))
@@ -200,19 +178,32 @@ class CardScraper:
                 card_discount = card.find_element(By.XPATH, ".//div[@class='abTest_discountTag_num__LCFLo']")
                 card_uc = card.find_element(By.XPATH, ".//div[@class='abTest_val__wyibD']")
                 card_price = card.find_element(By.XPATH, ".//div[@class='abTest_price__sww4i abTest_discount__oplOy']//div")
-                if index == (self.item_id - 1):
+                print(index)
+                if index == (int(item_id) - 1):
                     data_dict['card discount'] = card_discount.text
                     data_dict['card uc'] = card_uc.text
                     data_dict['card price'] = card_price.text
                     self.card_data_dict[index] = data_dict
                     print(index, 'card data', card_discount.text)
-                    break
-                time.sleep(1)
-
+                    ActionChains(self.driver).move_to_element(card).click(card).perform()
+                    time.sleep(1)
+                    self.purchase_pkj()
+                    return data_dict
+                else:
+                    pass
         except Exception as e:
             print('Card data not found', e)
+            return "Invalid card index"
 
+    def purchase_pkj(self):
+        try:
+            click_confirm_btn = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@class='ChannelListB_pop_mode_box__N5jHh ChannelListB_l_pop__q7l41 ChannelListB_main_pop__IDQkc ChannelListB_in__9OBKY ChannelListB_active__gvs2K visible']//div[@class='Button_btn__P0ibl Button_btn_primary__1ncdM']")))
+            ActionChains(self.driver).move_to_element(click_confirm_btn).click(click_confirm_btn).perform()
+            time.sleep(1)
 
-# player_id = '5240037068'
-# scraper = Scraper(player_id=player_id)
-# scraper.run()
+            pay_now_btn = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@class='OrderInfo_pop_mode_box__P-hF9 OrderInfo_m_pop__8j8Hz OrderInfo_m_pop__8j8Hz OrderInfo_active__ihp1K  visible']//div[@class='Button_btn__P0ibl Button_btn_primary__1ncdM']")))
+            ActionChains(self.driver).move_to_element(pay_now_btn).click(pay_now_btn).perform()
+            time.sleep(5)
+
+        except Exception as e:
+            print('Purchase pkj failed', e)
