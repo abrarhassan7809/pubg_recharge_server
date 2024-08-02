@@ -51,14 +51,16 @@ def get_card_data():
         try:
             # Reset the scraper's player ID
             scraper.player_id = None
+            scraper.item_id = None
 
             # Add new player ID
             is_player_id = scraper.add_player_id(player_id)
             if not is_player_id:
                 player_name = scraper.get_player_name()
-                print(player_name)
                 card_data = scraper.get_card_data(item_id=item_id)
-                return jsonify({'card_data': card_data})
+                pkj_response = scraper.purchase_pkj()
+
+                return jsonify({'card_data': card_data, "recharge response": pkj_response})
             else:
                 scraper.close_player_id_window()
                 return jsonify({'player_id': "Invalid player id"})

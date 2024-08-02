@@ -165,7 +165,6 @@ class Scraper:
             print("Player name found:", player_name.text)
             return player_name.text
         except Exception as e:
-            print('Invalid player id', e)
             return "Invalid player id"
 
     def get_card_data(self, item_id):
@@ -178,21 +177,17 @@ class Scraper:
                 card_discount = card.find_element(By.XPATH, ".//div[@class='abTest_discountTag_num__LCFLo']")
                 card_uc = card.find_element(By.XPATH, ".//div[@class='abTest_val__wyibD']")
                 card_price = card.find_element(By.XPATH, ".//div[@class='abTest_price__sww4i abTest_discount__oplOy']//div")
-                print(index)
                 if index == (int(item_id) - 1):
                     data_dict['card discount'] = card_discount.text
                     data_dict['card uc'] = card_uc.text
                     data_dict['card price'] = card_price.text
                     self.card_data_dict[index] = data_dict
-                    print(index, 'card data', card_discount.text)
                     ActionChains(self.driver).move_to_element(card).click(card).perform()
                     time.sleep(1)
-                    self.purchase_pkj()
                     return data_dict
                 else:
                     pass
         except Exception as e:
-            print('Card data not found', e)
             return "Invalid card index"
 
     def purchase_pkj(self):
@@ -203,7 +198,56 @@ class Scraper:
 
             pay_now_btn = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@class='OrderInfo_pop_mode_box__P-hF9 OrderInfo_m_pop__8j8Hz OrderInfo_m_pop__8j8Hz OrderInfo_active__ihp1K  visible']//div[@class='Button_btn__P0ibl Button_btn_primary__1ncdM']")))
             ActionChains(self.driver).move_to_element(pay_now_btn).click(pay_now_btn).perform()
-            time.sleep(5)
+            time.sleep(3)
+
+            try:
+                is_msg_1 = self.wait.until(EC.presence_of_element_located(
+                    (By.XPATH, "//div[@class='Pops_pop_mess__hN8D1']//font//font"))).is_displayed()
+                if is_msg_1:
+                    is_fail = self.wait.until(EC.presence_of_element_located(
+                        (By.XPATH, "//div[@class='Pops_pop_mess__hN8D1']//font//font")))
+
+                    if is_fail.text == "Payment failed":
+                        close_btn = self.wait.until(
+                            EC.presence_of_element_located((By.XPATH, "//div[@class='Pops_close_btn__91C6z']//i")))
+                        ActionChains(self.driver).move_to_element(close_btn).click(close_btn).perform()
+                        time.sleep(1)
+
+                        nxt_close_btn = self.wait.until(
+                            EC.presence_of_element_located((By.XPATH, "//div[@class='PopTitle_2_close_btn__+3O9n']//i")))
+                        ActionChains(self.driver).move_to_element(nxt_close_btn).click(nxt_close_btn).perform()
+                        time.sleep(1)
+
+                        return "Payment failed"
+                    else:
+                        return "Payment Successfully"
+            except Exception as e:
+                print('Payment failed msg1', e)
+
+            try:
+                is_msg_2 = self.wait.until(EC.presence_of_element_located(
+                    (By.XPATH, "//div[@class='Pops_pop_mess__hN8D1']//p"))).is_displayed()
+                if is_msg_2:
+                    is_fail = self.wait.until(EC.presence_of_element_located(
+                        (By.XPATH, "//div[@class='Pops_pop_mess__hN8D1']//p")))
+
+                    if is_fail.text == "فشل الدفع":
+                        close_btn = self.wait.until(
+                            EC.presence_of_element_located((By.XPATH, "//div[@class='Pops_close_btn__91C6z']//i")))
+                        ActionChains(self.driver).move_to_element(close_btn).click(close_btn).perform()
+                        time.sleep(1)
+
+                        nxt_close_btn = self.wait.until(
+                            EC.presence_of_element_located(
+                                (By.XPATH, "//div[@class='PopTitle_2_close_btn__+3O9n']//i")))
+                        ActionChains(self.driver).move_to_element(nxt_close_btn).click(nxt_close_btn).perform()
+                        time.sleep(1)
+
+                        return "Payment failed"
+                    else:
+                        return "Payment Successfully"
+            except Exception as e:
+                print('Payment failed msg2', e)
 
         except Exception as e:
             print('Purchase pkj failed', e)
